@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wire Snake Game</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: white;
+            text-align: center;
+        }
+
+        .page-wrap {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin-top: 0;
+            color: #cbd5e1;
+        }
+
+        .top-links {
+            margin: 20px 0;
+        }
+
+        .top-links a {
+            display: inline-block;
+            margin: 0 10px;
+            padding: 10px 18px;
+            background: #1d4ed8;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .top-links a:hover {
+            background: #2563eb;
+        }
+
+        .game-box {
+            display: inline-block;
+            background: #111827;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.35);
+        }
+
+        canvas {
+            background: #e5e7eb;
+            border: 4px solid #334155;
+            border-radius: 10px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .info {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin: 15px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .controls {
+            margin-top: 15px;
+        }
+
+        .controls button {
+            margin: 5px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: #475569;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .controls button:hover {
+            background: #64748b;
+        }
+
+        .note {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #cbd5e1;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-wrap">
+        <h1>Coil Cobras</h1>
+        <p>Use the arrow keys to guide the wire and collect blue electric bolts.</p>
+
+        <div class="top-links">
+            <a href="index.html">Back to Main Page</a>
+        </div>
+
+        <div class="game-box">
+            <div class="info">
+                <div>Score: <span id="score">0</span></div>
+                <div>High Score: <span id="highScore">0</span></div>
+            </div>
+
+            <canvas id="gameCanvas" width="500" height="500"></canvas>
+
+            <div class="controls">
+                <button onclick="startGame()">Start / Restart</button>
+            </div>
+
+            <div class="note">
+                Arrow keys to move. Don’t crash into the walls or your own wire.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const box = 20;
+        const rows = canvas.width / box;
+        const cols = canvas.height / box;
+
+        let snake;
+        let direction;
+        let nextDirection;
+        let bolt;
+        let score;
+        let highScore = localStorage.getItem("wireSnakeHighScore") || 0;
+        let gameLoop;
+        let gameStarted = false;
+
+        document.getElementById("highScore").textContent = highScore;
+
+        function startGame() {
+            snake = [
+                { x: 8 * box, y: 10 * box },
+                { x: 7 * box, y: 10 * box },
+                { x: 6 * box, y: 10 * box }
+            ];
+
+            direction = "RIGHT";
+            nextDirection = "RIGHT";
+            score = 0;
+            document.getElementById("score").textContent = score;
+
+            placeBolt();
+            gameStarted = true;
+
+            clearInterval(gameLoop);
+            gameLoop = setInterval(drawGame, 110);
+        }
+
+        function placeBolt() {
+            let validSpot = false;
+
+            while (!validSpot) {
+                bolt = {
+                    x: Math.floor(Math.random() * cols) * box,
+                    y: Math.floor(Math.random() * rows) * box
+                };
+
+                validSpot = !snake.some(segment => segment.x === bolt.x && segment.y === bolt.y);
+            }
+        }
+
+        document.addEventListener("keydown", changeDirection);
+
+        function changeDirection(event) {
+            const key = event.key;
+
+            if (key === "ArrowLeft" && direction !== "RIGHT") {
+                nextDirection = "LEFT";
+            } else if (key === "ArrowUp" && direction !== "DOWN") {
+                nextDirection = "UP";
+            } else if (key === "ArrowRight" && direction !== "LEFT") {
+                nextDirection = "RIGHT";
+            } else if (key === "ArrowDown" && direction !== "UP") {
+                nextDirection = "DOWN";
+            }
+        }
+
+        function drawBolt(x, y) {
+            ctx.save();
+            ctx.translate(x + box / 2, y + box / 2);
+
+            ctx.beginPath();
+            ctx.moveTo(-3, -10);
+            ctx.lineTo(4, -2);
+            ctx.lineTo(0, -2);
+            ctx.lineTo(6, 10);
+            ctx.lineTo(-4, 2);
+            ctx.lineTo(0, 2);
+            ctx.closePath();
+
+            ctx.fillStyle = "#2563eb";
+            ctx.fill();
+
+            ctx.shadowColor = "#60a5fa";
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = "#3b82f6";
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawWireSegment(segment, index) {
+            const x = segment.x;
+            const y = segment.y;
+
+            ctx.save();
+
+            if (index === 0) {
+                ctx.fillStyle = "#6b7280";
+            } else {
+                ctx.fillStyle = "#9ca3af";
+            }
+
+            ctx.beginPath();
+            ctx.roundRect(x + 1, y + 4, box - 2, box - 8, 8);
+            ctx.fill();
+
+            ctx.strokeStyle = "#d1d5db";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x + 4, y + box / 2);
+            ctx.lineTo(x + box - 4, y + box / 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = "#4b5563";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x + 4, y + box / 2 - 4);
+            ctx.lineTo(x + box - 4, y + box / 2 - 4);
+            ctx.moveTo(x + 4, y + box / 2 + 4);
+            ctx.lineTo(x + box - 4, y + box / 2 + 4);
+            ctx.stroke();
+
+            if (index === 0) {
+                ctx.fillStyle = "#0f172a";
+                if (direction === "RIGHT") {
+                    ctx.beginPath();
+                    ctx.arc(x + 14, y + 7, 2, 0, Math.PI * 2);
+                    ctx.arc(x + 14, y + 13, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (direction === "LEFT") {
+                    ctx.beginPath();
+                    ctx.arc(x + 6, y + 7, 2, 0, Math.PI * 2);
+                    ctx.arc(x + 6, y + 13, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (direction === "UP") {
+                    ctx.beginPath();
+                    ctx.arc(x + 7, y + 6, 2, 0, Math.PI * 2);
+                    ctx.arc(x + 13, y + 6, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (direction === "DOWN") {
+                    ctx.beginPath();
+                    ctx.arc(x + 7, y + 14, 2, 0, Math.PI * 2);
+                    ctx.arc(x + 13, y + 14, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function collision(head, array) {
+            for (let i = 0; i < array.length; i++) {
+                if (head.x === array[i].x && head.y === array[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "#e5e7eb";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            direction = nextDirection;
+
+            drawBolt(bolt.x, bolt.y);
+
+            for (let i = 0; i < snake.length; i++) {
+                drawWireSegment(snake[i], i);
+            }
+
+            let snakeX = snake[0].x;
+            let snakeY = snake[0].y;
+
+            if (direction === "LEFT") snakeX -= box;
+            if (direction === "UP") snakeY -= box;
+            if (direction === "RIGHT") snakeX += box;
+            if (direction === "DOWN") snakeY += box;
+
+            if (snakeX === bolt.x && snakeY === bolt.y) {
+                score++;
+                document.getElementById("score").textContent = score;
+
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem("wireSnakeHighScore", highScore);
+                    document.getElementById("highScore").textContent = highScore;
+                }
+
+                placeBolt();
+            } else {
+                snake.pop();
+            }
+
+            const newHead = { x: snakeX, y: snakeY };
+
+            if (
+                snakeX < 0 ||
+                snakeY < 0 ||
+                snakeX >= canvas.width ||
+                snakeY >= canvas.height ||
+                collision(newHead, snake)
+            ) {
+                clearInterval(gameLoop);
+                ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "white";
+                ctx.font = "bold 42px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 10);
+
+                ctx.font = "22px Arial";
+                ctx.fillText("Click Start / Restart to play again", canvas.width / 2, canvas.height / 2 + 30);
+                return;
+            }
+
+            snake.unshift(newHead);
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
